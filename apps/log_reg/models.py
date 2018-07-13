@@ -1,42 +1,38 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
-
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 from django.db import models
 
-# Create your models here.
 class UserManager(models.Manager):
-    def validate(self, first_name, last_name, email, password):
-        errors = []
-        if first_name == "":
-            errors.append("First name cannot be empty")
-        if last_name == "":
-            errors.append("Last name cannot be empty")
-        if email == "":
-            errors.append("Email cannot be empty")
-        if password == "":
-            errors.append("Password cannot be empty")
-        return (False, errors)
-    def validateLogin(self, email, password):
-        errors = []
-        if email == "":
-            errors.append("Email cannot be empty")
-        elif len(User.objects.filter(email=email)) > 0:
-            errors.append("Email already exists, try again.")
-        if password == "":
-            errors.append("Password cannot be empty")
-        if len(errors) == 0:
-            return (False, errors)
+    def validate_user(self, postData):
+        errors = {}
+        # validate first and last name
+        if len(postData['first_name']) < 2 or not postData['first_name'].isalpha():
+            if len(postData['first_name']) < 2: 
+                errors['first_len'] = "Your first name needs to be two or more characters"
+            if not postData['first_name'].isalpha():
+                errors['first_alpha'] = "Your first name needs to be in only letters"
+        if len(postData['last_name']) < 2 or not postData['last_name'].isalpha():
+            if len(postData['last_name']) < 2:
+                errors['last_len'] = "Your last name needs to be two or more characters"
+            if not postData['last_name'].isalpha():
+                errors['last_alpha'] = "Your last name needs to be in only letters"
+        # validate email
+        try:
+            validate_email(postData['email'])
+        except ValidationError:
+            errors['email'] = "Your email is not valid"
         else:
-            users = self.filter(email=email)
-            if len(users) > 0:
-                user = users[0]
-                if user.password == password:
-                    return (True, user.id)
-                else:
-                    errors.append("Password incorrect, try again.")
-            else:
-                errors.append(request, "No email found")
-        return (False, errors)
+            if User.objects.filter(email=postData['email']):
+                errors['email'] = "This email already exists"
+
+        # validate password
+        if len(postData['password']) < 8:
+            errors['password'] = "Password needs to be at least 8 characters"
+        if postData['password'] != postData['confirm_pass']:
+            errors['confirm_pass'] = "Passwords must match"
+        return errors
 
 class User(models.Model):
     first_name = models.CharField(max_length=255)
